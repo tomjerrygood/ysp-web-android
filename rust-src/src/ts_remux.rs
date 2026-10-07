@@ -166,9 +166,9 @@ fn decrypt_video_pes(
 
     let mut out_nals = Vec::with_capacity(nals.len() + 2);
     let mut keyframe = false;
+    runtime.update(media_tag_id)?;
     for mut nal in nals {
         stats.nal_count += 1;
-        runtime.update(media_tag_id)?;
         match nal.nal_type {
             1 | 5 => {
                 if video_state.live_sps_enabled {
