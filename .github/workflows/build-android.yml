@@ -31,7 +31,7 @@ jobs:
       - name: Build release binary (ARM32)
         working-directory: ./rust-src
         run: |
-          cargo ndk -t armv7 -o ../ --release build
+          cargo ndk -t armeabi-v7a -o ../ --release build
           ls -la ../iptv-rust
           file ../iptv-rust
 
@@ -39,6 +39,7 @@ jobs:
         working-directory: ./rust-src
         run: |
           cargo ndk -t arm64-v8a -o ../ --release build
+          mv iptv-rust iptv-rust-arm64
           ls -la ../iptv-rust-arm64
           file ../iptv-rust-arm64
 
