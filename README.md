@@ -6,21 +6,20 @@
 
 | 文件 | 说明 |
 |------|------|
-| `iptv-rust` | 编译好的 ARM32 可执行二进制文件 |
+| `iptv-rust-arm` | 编译好的 ARM32 (armv7) 可执行二进制文件 |
+| `iptv-rust-arm64` | 编译好的 ARM64 (aarch64) 可执行二进制文件 |
 | `channels.yaml` | 频道列表配置文件 |
+
+> **注意**：已关闭 UPX 压缩并内置 WebPKI 根证书，确保在 Android 系统上运行时 WASM 内存映射和 HTTPS 证书校验正常工作。
 
 ## 在 Android 9+ 盒子后台运行
 
 ### 1. 将文件推送到盒子
 
 ```bash
-# 通过 adb 推送（需要开启 ADB 调试）
-adb push iptv-rust /data/local/tmp/
+# 通过 adb 推送（根据盒子系统位数选择 iptv-rust-arm 或 iptv-rust-arm64）
+adb push iptv-rust-arm /data/local/tmp/iptv-rust
 adb push channels.yaml /data/local/tmp/
-
-# 或者通过 adb shell + curl/wget 下载
-adb shell "curl -o /data/local/tmp/iptv-rust 'https://your-server/iptv-rust'"
-adb shell "curl -o /data/local/tmp/channels.yaml 'https://your-server/channels.yaml'"
 ```
 
 ### 2. 授权并启动
@@ -29,17 +28,12 @@ adb shell "curl -o /data/local/tmp/channels.yaml 'https://your-server/channels.y
 # 进入盒子 shell
 adb shell
 
-# 切换到 root 权限（部分盒子需要）
-su
-
 # 给二进制执行权限
 chmod +x /data/local/tmp/iptv-rust
 
-# 后台运行（输出到日志文件）
-/data/local/tmp/iptv-rust --channels /data/local/tmp/channels.yaml --host 0.0.0.0 --port 8787 >> /data/local/tmp/iptv-rust.log 2>&1 &
-
-# 或者使用 nohup
-nohup /data/local/tmp/iptv-rust --channels /data/local/tmp/channels.yaml --host 0.0.0.0 --port 8787 > /data/local/tmp/iptv-rust.log 2>&1 &
+# 切换到工作目录并后台运行
+cd /data/local/tmp
+./iptv-rust --channels channels.yaml --host 0.0.0.0 --port 8787 > iptv-rust.log 2>&1 &
 ```
 
 ### 3. 验证运行状态
@@ -83,5 +77,5 @@ TVBox 配置中添加接口地址：
 GitHub Actions 会在每次 push 到 master 时自动编译，编译产物可通过以下方式获取：
 
 1. 进入仓库 Actions 页面，选择最新 workflow run
-2. 在 Artifacts 中下载 `iptv-rust-arm`
+2. 在 Artifacts 中下载 `iptv-rust-arm` (32位) 或 `iptv-rust-arm64` (64位)
 3. 或直接访问 GitHub Releases 下载（workflow_dispatch 触发时生成）

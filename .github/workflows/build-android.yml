@@ -32,14 +32,6 @@ jobs:
           rm android-ndk-r26b-linux.zip
           echo "ANDROID_NDK_HOME=$HOME/android-ndk/android-ndk-r26b" >> $GITHUB_ENV
 
-      - name: Install UPX
-        run: |
-          wget -q https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-amd64_linux.tar.xz
-          tar -xf upx-4.2.4-amd64_linux.tar.xz
-          sudo cp upx-4.2.4-amd64_linux/upx /usr/local/bin/
-          sudo chmod +x /usr/local/bin/upx
-          upx --version
-
       - name: Build release binary (ARM32)
         working-directory: ./rust-src
         env:
@@ -49,11 +41,8 @@ jobs:
           CFLAGS_armv7-linux-androideabi: "--target=armv7a-linux-androideabi21 --sysroot=${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
         run: |
           cargo build --target armv7-linux-androideabi --release
-          UPX_OPTS="--best --lzma"
-          if command -v upx &>/dev/null; then
-            upx $UPX_OPTS target/armv7-linux-androideabi/release/iptv-rust
-          fi
           cp target/armv7-linux-androideabi/release/iptv-rust ../iptv-rust-arm
+          chmod +x ../iptv-rust-arm
 
       - name: Build release binary (ARM64)
         working-directory: ./rust-src
@@ -64,17 +53,13 @@ jobs:
           CFLAGS_aarch64-linux-android: "--target=aarch64-linux-android21 --sysroot=${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
         run: |
           cargo build --target aarch64-linux-android --release
-          UPX_OPTS="--best --lzma"
-          if command -v upx &>/dev/null; then
-            upx $UPX_OPTS target/aarch64-linux-android/release/iptv-rust
-          fi
           cp target/aarch64-linux-android/release/iptv-rust ../iptv-rust-arm64
+          chmod +x ../iptv-rust-arm64
 
       - name: Verify binaries
         run: |
           ls -la iptv-rust-arm iptv-rust-arm64
           file iptv-rust-arm iptv-rust-arm64
-          upx -t iptv-rust-arm iptv-rust-arm64 2>/dev/null || true
 
       - name: Upload ARM32 artifact
         uses: actions/upload-artifact@v4

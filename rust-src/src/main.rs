@@ -50,7 +50,7 @@ struct Args {
     host: String,
     #[arg(long, default_value_t = DEFAULT_PORT)]
     port: u16,
-    #[arg(long, default_value = "/app/channels.yaml")]
+    #[arg(long, default_value = "channels.yaml")]
     channels: PathBuf,
     #[arg(long, default_value_t = false)]
     verbose: bool,
@@ -319,12 +319,14 @@ async fn segment(
             response
         }
         Err(error) => {
+            let err_msg = error_chain(&error);
+            warn!(channel = %ch, error = %err_msg, "segment processing failed");
             let mut stats = state.stats.lock().await;
             stats.segment_errors += 1;
             drop(stats);
             json_status(
                 StatusCode::BAD_GATEWAY,
-                serde_json::json!({ "ok": false, "error": error.to_string() }),
+                serde_json::json!({ "ok": false, "error": err_msg }),
             )
         }
     }
@@ -352,13 +354,22 @@ async fn notice_cached(state: &AppState, ch: &str) -> bool {
 }
 
 async fn temporary_notice(state: &AppState, ch: &str, error: anyhow::Error) -> Response {
-    warn!(channel = %ch, error = %error, "temporary notice fallback");
+    let err_msg = error_chain(&error);
+    warn!(channel = %ch, error = %err_msg, "temporary notice fallback");
     let mut cache = state.notice_cache.lock().await;
     cache.insert(
         ch.to_ascii_lowercase(),
         now_ms() + NOTICE_CACHE_TTL_MS as u128,
     );
     Redirect::temporary(NOTICE_URL).into_response()
+}
+
+fn error_chain(error: &anyhow::Error) -> String {
+    error
+        .chain()
+        .map(|cause| cause.to_string())
+        .collect::<Vec<_>>()
+        .join("; caused by: ")
 }
 
 fn text_response(status: StatusCode, content_type: &'static str, text: String) -> Response {
