@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -18,20 +23,27 @@ jobs:
         with:
           targets: armv7-linux-androideabi
 
-      - name: Install Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-          link-to-sdk: false
+      - name: Install Android NDK r26b
+        run: |
+          ANDROID_NDK_VERSION="r26b"
+          NDK_URL="https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          wget -q "$NDK_URL" -O /tmp/ndk.zip
+          unzip -q /tmp/ndk.zip -d /opt
+          echo "ANDROID_NDK_HOME=/opt/android-ndk-${ANDROID_NDK_VERSION}" >> $GITHUB_ENV
+          echo "/opt/android-ndk-${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Set environment variables
+        run: |
+          echo "CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang" >> $GITHUB_ENV
+          echo "CXX=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++" >> $GITHUB_ENV
+          echo "AR=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
 
       - name: Build release binary
         working-directory: ./rust-src
         run: |
-          export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
-          export CC_armv7_linux_androideabi="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
-          export CXX_armv7_linux_androideabi="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++"
           cargo build --release --target armv7-linux-androideabi
           ls -la target/armv7-linux-androideabi/release/iptv-rust
+          file target/armv7-linux-androideabi/release/iptv-rust
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -40,10 +52,12 @@ jobs:
           path: rust-src/target/armv7-linux-androideabi/release/iptv-rust
           retention-days: 30
 
-      - name: Create GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event.inputs.tag }}
           files: rust-src/target/armv7-linux-androideabi/release/iptv-rust
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
