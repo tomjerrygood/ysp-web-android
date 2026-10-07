@@ -1,0 +1,32 @@
+# Rust
+/target
+/Cargo.lock
+**/*.rs.bk
+
+# Android (legacy)
+.gradle
+/local.properties
+/build
+/app
+/settings.gradle
+build.gradle
+gradle.properties
+gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Build artifacts
+*.apk
+*.aab
+*.aar
+*.jar
+*.so
+iptv-rust-arm
+iptv-rust-arm64
+
+# Log files
+*.log
