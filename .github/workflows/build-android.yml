@@ -1,0 +1,49 @@
+name: Build Android ARM Binary
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for Android ARM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-linux-androideabi
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          link-to-sdk: false
+
+      - name: Build release binary
+        working-directory: ./rust-src
+        run: |
+          export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          export CC_armv7_linux_androideabi="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+          export CXX_armv7_linux_androideabi="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++"
+          cargo build --release --target armv7-linux-androideabi
+          ls -la target/armv7-linux-androideabi/release/iptv-rust
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptv-rust-arm
+          path: rust-src/target/armv7-linux-androideabi/release/iptv-rust
+          retention-days: 30
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: rust-src/target/armv7-linux-androideabi/release/iptv-rust
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
