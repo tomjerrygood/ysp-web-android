@@ -1,0 +1,11 @@
+[target.armv7-linux-androideabi]
+linker = "D:/android-project/SDK/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/armv7a-linux-androideabi21-clang.cmd"
+ar = "D:/android-project/SDK/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+[target.aarch64-linux-android]
+linker = "D:/android-project/SDK/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang.cmd"
+ar = "D:/android-project/SDK/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"
+
+[env]
+NDK_HOME = "D:/android-project/SDK/ndk/28.2.13676358"
+ANDROID_NDK_HOME = "D:/android-project/SDK/ndk/28.2.13676358"
