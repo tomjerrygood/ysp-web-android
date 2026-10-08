@@ -25,7 +25,7 @@ use crate::{
         MEDIA_PLAYLIST_WINDOW_SEGMENTS, USER_AGENT,
     },
     live::LiveClient,
-    prefix::{abs_url, append_recursive_prefix},
+    prefix::{append_recursive_prefix, relative_or_abs_url},
     ts_remux::{decrypt_and_remux_ts, CmgVideoState, RemuxStats, TsMuxState},
 };
 
@@ -178,7 +178,7 @@ impl MediaPipeline {
             for segment in &live_segments {
                 state.segments.insert(segment.id.clone(), segment.clone());
                 lines.push(format!("#EXTINF:{:.3},", segment.duration));
-                let url = abs_url(
+                let url = relative_or_abs_url(
                     headers,
                     uri,
                     &format!("/segment/{}/{}.ts", channel.ch, segment.id),
