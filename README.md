@@ -10,7 +10,7 @@
 | `iptv-rust-arm64` | 编译好的 ARM64 (aarch64) 可执行二进制文件 |
 | `channels.yaml` | 频道列表配置文件 |
 
-> **注意**：已关闭 UPX 压缩并内置 WebPKI 根证书，确保在 Android 系统上运行时 WASM 内存映射和 HTTPS 证书校验正常工作。
+> **注意**：已关闭 UPX 压缩并内置 WebPKI 根证书，优化了 WASM 算法并支持相对切片路径，确保在 Android 系统上运行时解密高效且网络地址自适应。
 
 ## 在 Android 9+ 盒子后台运行
 
@@ -18,32 +18,31 @@
 
 ```bash
 # 通过 adb 推送（根据盒子系统位数选择 iptv-rust-arm 或 iptv-rust-arm64）
-adb push iptv-rust-arm /data/local/tmp/iptv-rust
-adb push channels.yaml /data/local/tmp/
+adb push iptv-rust-arm /data/local/iptv-rust/iptv-rust-arm
+adb push channels.yaml /data/local/iptv-rust/channels.yaml
 ```
 
-### 2. 授权并启动
+### 2. 授权并启动 (作为后台 Daemon 常驻)
 
 ```bash
 # 进入盒子 shell
 adb shell
 
 # 给二进制执行权限
-chmod +x /data/local/tmp/iptv-rust
+chmod +x /data/local/iptv-rust/iptv-rust-arm
 
-# 切换到工作目录并后台运行
-cd /data/local/tmp
-./iptv-rust --channels channels.yaml --host 0.0.0.0 --port 8787 > iptv-rust.log 2>&1 &
+# 使用 start-stop-daemon 启动常驻后台（方式一，推荐）
+busybox start-stop-daemon -S -b -x /data/local/iptv-rust/iptv-rust-arm -- --channels /data/local/iptv-rust/channels.yaml --host 0.0.0.0 --port 8787
+
+# 或使用 nohup 启动（方式二）
+nohup /data/local/iptv-rust/iptv-rust-arm --channels /data/local/iptv-rust/channels.yaml --host 0.0.0.0 --port 8787 > /data/local/iptv-rust/iptv-rust.log 2>&1 &
 ```
 
 ### 3. 验证运行状态
 
 ```bash
-# 查看进程
-ps | grep iptv-rust
-
-# 查看日志
-cat /data/local/tmp/iptv-rust.log
+# 查看进程 (Android 9 上请使用 ps -A)
+ps -A | grep iptv
 
 # 测试接口
 curl http://127.0.0.1:8787/health
