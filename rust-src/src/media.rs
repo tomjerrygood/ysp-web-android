@@ -25,8 +25,8 @@ use crate::{
         MEDIA_PLAYLIST_WINDOW_SEGMENTS, USER_AGENT,
     },
     live::LiveClient,
-    prefix::{append_recursive_prefix, relative_or_abs_url},
-    ts_decrypt::{decrypt_ts_segment, TsDecryptStats},
+    prefix::{abs_url, append_recursive_prefix},
+    ts_remux::{decrypt_and_remux_ts, CmgVideoState, RemuxStats, TsMuxState},
 };
 
 #[derive(Clone)]
@@ -57,6 +57,8 @@ struct ChannelRuntime {
     media_tag_id: String,
     page_url: String,
     cmg: CmgRuntime,
+    video_state: CmgVideoState,
+    mux_state: TsMuxState,
     processed: HashMap<i64, ProcessedSegment>,
     last_processed_sequence: Option<i64>,
     reset_count: u64,
@@ -65,7 +67,7 @@ struct ChannelRuntime {
 #[derive(Clone)]
 struct ProcessedSegment {
     bytes: Bytes,
-    stats: TsDecryptStats,
+    stats: RemuxStats,
 }
 
 #[derive(Serialize)]
@@ -80,7 +82,7 @@ struct SegmentDumpMeta<'a> {
     reset_count: u64,
     input_bytes: usize,
     output_bytes: usize,
-    stats: TsDecryptStats,
+    stats: RemuxStats,
 }
 
 #[derive(Debug)]
@@ -176,7 +178,7 @@ impl MediaPipeline {
             for segment in &live_segments {
                 state.segments.insert(segment.id.clone(), segment.clone());
                 lines.push(format!("#EXTINF:{:.3},", segment.duration));
-                let url = relative_or_abs_url(
+                let url = abs_url(
                     headers,
                     uri,
                     &format!("/segment/{}/{}.ts", channel.ch, segment.id),
@@ -216,6 +218,8 @@ impl MediaPipeline {
             media_tag_id,
             page_url,
             cmg,
+            video_state: CmgVideoState::default(),
+            mux_state: TsMuxState::default(),
             processed: HashMap::new(),
             last_processed_sequence: None,
             reset_count: 0,
@@ -313,8 +317,10 @@ impl MediaPipeline {
             ));
         }
         let input = response.bytes().await?;
-        let (output, stats) = decrypt_ts_segment(
+        let (output, stats) = decrypt_and_remux_ts(
             &mut runtime.cmg,
+            &mut runtime.video_state,
+            &mut runtime.mux_state,
             &runtime.media_tag_id,
             ACTIVE_URL,
             &input,
@@ -351,14 +357,18 @@ impl MediaPipeline {
                 output_bytes = output.len(),
                 media_tag_id = %runtime.media_tag_id,
                 vmp_tag = %runtime.cmg.vmp_tag(),
-                video_pid = stats.video_pid,
+                video_pid = stats.input_video_pid,
+                audio_pid = stats.input_audio_pid,
+                video_samples = stats.video_sample_count,
+                audio_samples = stats.audio_sample_count,
                 nal_count = stats.nal_count,
                 decoded_nals = stats.decoded_nals,
                 changed_nals = stats.changed_nals,
                 changed_bytes = stats.changed_bytes,
                 shorter_nals = stats.shorter_nals,
+                sps_side_effects = stats.sps_side_effects,
                 reset_count = runtime.reset_count,
-                "decrypted TS segment in-place"
+                "decrypted and remuxed TS segment"
             );
         }
         let processed = ProcessedSegment {
@@ -504,6 +514,8 @@ fn reset_runtime_locked(runtime: &mut ChannelRuntime) -> Result<()> {
     cmg.prime(&media_tag_id)?;
     runtime.media_tag_id = media_tag_id;
     runtime.cmg = cmg;
+    runtime.video_state = CmgVideoState::default();
+    runtime.mux_state = TsMuxState::default();
     runtime.processed.clear();
     runtime.last_processed_sequence = None;
     runtime.reset_count += 1;

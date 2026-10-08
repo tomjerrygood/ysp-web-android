@@ -31,21 +31,11 @@ pub struct RemuxStats {
     pub output_bytes: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CmgVideoState {
     live_sps_enabled: bool,
     last_sps: Option<Vec<u8>>,
     last_pps: Option<Vec<u8>>,
-}
-
-impl Default for CmgVideoState {
-    fn default() -> Self {
-        Self {
-            live_sps_enabled: true,
-            last_sps: None,
-            last_pps: None,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -176,30 +166,32 @@ fn decrypt_video_pes(
 
     let mut out_nals = Vec::with_capacity(nals.len() + 2);
     let mut keyframe = false;
-    runtime.update(media_tag_id)?;
     for mut nal in nals {
         stats.nal_count += 1;
+        runtime.update(media_tag_id)?;
         match nal.nal_type {
             1 | 5 => {
-                stats.decoded_nals += 1;
-                let decoded = runtime.module_dec_live(media_tag_id, &nal.data, active_url)?;
-                let diff = count_byte_diff(&nal.data, &decoded);
-                if diff > 0 {
-                    stats.changed_nals += 1;
-                    stats.changed_bytes += diff;
+                if video_state.live_sps_enabled {
+                    stats.decoded_nals += 1;
+                    let decoded = runtime.module_dec_live(media_tag_id, &nal.data, active_url)?;
+                    let diff = count_byte_diff(&nal.data, &decoded);
+                    if diff > 0 {
+                        stats.changed_nals += 1;
+                        stats.changed_bytes += diff;
+                    }
+                    if decoded.len() < nal.data.len() {
+                        stats.shorter_nals += 1;
+                    }
+                    if decoded.len() > nal.data.len() {
+                        return Err(anyhow!(
+                            "CMG output grew from {} to {} bytes for H264 NAL type {}",
+                            nal.data.len(),
+                            decoded.len(),
+                            nal.nal_type
+                        ));
+                    }
+                    nal.data = decoded;
                 }
-                if decoded.len() < nal.data.len() {
-                    stats.shorter_nals += 1;
-                }
-                if decoded.len() > nal.data.len() {
-                    return Err(anyhow!(
-                        "CMG output grew from {} to {} bytes for H264 NAL type {}",
-                        nal.data.len(),
-                        decoded.len(),
-                        nal.nal_type
-                    ));
-                }
-                nal.data = decoded;
                 if nal.nal_type == 5 {
                     keyframe = true;
                 }
@@ -207,17 +199,23 @@ fn decrypt_video_pes(
             }
             7 => {
                 if nal.data.len() > 2 {
+                    if !video_state.live_sps_enabled {
+                        let marker = nal.data[2] & 0x03;
+                        video_state.live_sps_enabled = marker == 1 || marker == 2;
+                    }
                     let _ = runtime.module_dec_live(media_tag_id, &nal.data, active_url)?;
                     nal.data[2] = 0;
                     stats.sps_side_effects += 1;
                 }
                 video_state.last_sps = Some(nal.data.clone());
+                out_nals.push(nal);
             }
             8 => {
                 video_state.last_pps = Some(nal.data.clone());
+                out_nals.push(nal);
             }
             9 => {
-                // Ignore input AUD NAL since a single AUD NAL is prepended below
+                out_nals.push(nal);
             }
             _ => out_nals.push(nal),
         }

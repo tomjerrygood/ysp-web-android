@@ -1,6 +1,8 @@
 # Rust
 /target
+/rust-src/target
 /Cargo.lock
+/rust-src/Cargo.lock
 **/*.rs.bk
 
 # Android (legacy)
@@ -27,6 +29,7 @@ gradle/
 *.so
 iptv-rust-arm
 iptv-rust-arm64
+ysp-web-android
 
 # Log files
 *.log

@@ -60,22 +60,6 @@ pub fn abs_url(headers: &HeaderMap, uri: &Uri, path: &str) -> String {
     format!("{base}{path}")
 }
 
-pub fn relative_or_abs_url(headers: &HeaderMap, uri: &Uri, path: &str) -> String {
-    if let Some(prefix) = explicit_prefix(uri) {
-        return abs_url(headers, uri, path);
-    }
-    if let Some(host) = first_header(headers, "host") {
-        if !host.starts_with("127.0.0.1") && !host.starts_with("localhost") {
-            return abs_url(headers, uri, path);
-        }
-    }
-    if path.starts_with('/') {
-        path.to_string()
-    } else {
-        format!("/{path}")
-    }
-}
-
 pub fn append_recursive_prefix(uri: &Uri, target: &str) -> String {
     let Some(prefix) = explicit_prefix(uri) else {
         return target.to_string();

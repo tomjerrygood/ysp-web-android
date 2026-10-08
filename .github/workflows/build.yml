@@ -1,0 +1,48 @@
+name: Build ARM Binary
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build for Android ARMv7 with cross
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-linux-androideabi
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build release binary (ARM32 armv7-linux-androideabi)
+        working-directory: ./rust-src
+        run: |
+          cross build --target armv7-linux-androideabi --release
+          cp target/armv7-linux-androideabi/release/iptv-rust ../ysp-web-android
+          chmod +x ../ysp-web-android
+
+      - name: Verify binary
+        run: |
+          ls -la ysp-web-android
+          file ysp-web-android
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ysp-web-android-armv7
+          path: ysp-web-android
+          retention-days: 30

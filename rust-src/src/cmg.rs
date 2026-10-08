@@ -335,7 +335,24 @@ impl CmgRuntime {
             );
         }
 
-        let call_result = self.call_live_export(8, key_ptr, data_ptr, input.len() as i32, active_url_len);
+        let call_result = (|| -> Result<i32> {
+            if !cmg_live8_only() {
+                let vmp_tag = self.vmp_tag.clone();
+                for (position, ch) in vmp_tag.chars().enumerate().take(8) {
+                    if matches!(ch, '0'..='6') {
+                        let live_index = 7usize.saturating_sub(position);
+                        let _ = self.call_live_export(
+                            live_index,
+                            key_ptr,
+                            data_ptr,
+                            input.len() as i32,
+                            active_url_len,
+                        )?;
+                    }
+                }
+            }
+            self.call_live_export(8, key_ptr, data_ptr, input.len() as i32, active_url_len)
+        })();
         let output = match call_result {
             Ok(out_len) if out_len >= 0 => self.read_bytes(data_ptr, out_len as usize)?,
             Ok(out_len) => {
