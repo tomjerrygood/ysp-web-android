@@ -212,14 +212,12 @@ fn decrypt_video_pes(
                     stats.sps_side_effects += 1;
                 }
                 video_state.last_sps = Some(nal.data.clone());
-                out_nals.push(nal);
             }
             8 => {
                 video_state.last_pps = Some(nal.data.clone());
-                out_nals.push(nal);
             }
             9 => {
-                out_nals.push(nal);
+                // Ignore input AUD NAL since a single AUD NAL is prepended below
             }
             _ => out_nals.push(nal),
         }
